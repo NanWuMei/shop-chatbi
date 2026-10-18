@@ -1,0 +1,48 @@
+id: t03
+question: 大促三天（6/16-6/18）各渠道GMV趋势
+rows_key: t03
+llm:
+  understand:
+    - metrics: [GMV]
+      dimensions: [日期, 渠道]
+      time_expr: 大促三天（6/16-6/18）
+      slot_form: trend
+      is_data_question: true
+  aligner:
+    - status: ok
+      query_spec:
+        metrics:
+          - name: gmv
+            label: GMV
+            table: fact_order
+            expression: SUM(gmv_amount)
+            agg: SUM
+            fmt: money
+            filters: ["pay_status='已支付'"]
+            caliber_note: GMV=已支付订单商品成交金额求和
+        dimensions:
+          - {name: order_date, label: 日期, table: fact_order, column: order_date}
+          - {name: channel, label: 渠道, table: dim_channel, column: channel_name}
+        time_range: {start: "2026-06-16", end: "2026-06-18", label: 大促正式期, inferred: true}
+        grain: day
+        caliber_summary: GMV=已支付订单商品成交金额求和；范围=大促正式期(2026-06-16~2026-06-18，由「大促三天」推断)；日粒度×渠道
+  coder:
+    - sql: >-
+        SELECT o.order_date, c.channel_name, SUM(o.gmv_amount) AS gmv
+        FROM fact_order o JOIN dim_channel c ON o.channel_id = c.channel_id
+        WHERE o.pay_status = '已支付' AND o.order_date BETWEEN '2026-06-16' AND '2026-06-18'
+        GROUP BY o.order_date, c.channel_name ORDER BY o.order_date, gmv DESC
+      lineage:
+        tables: [fact_order, dim_channel]
+        columns: [order_date, channel_name, gmv_amount, pay_status, channel_id]
+        calibers: [GMV=已支付订单商品成交金额求和]
+        exemplar_ids: []
+  writer:
+    - insight: 渠道A在大促正式期单日GMV最高，为520000。
+expect:
+  action: answer
+  path: [S1, S3, S4, S5, S6, S7, S8]
+  chart: trend_line
+  rows: 3  # S7 趋势长表透视为宽表（x=日期、渠道各一列），3 天 × 2 渠道 → 3 行
+  insight_contains: 渠道A
+  caliber_contains: ["2026-06-16", "2026-06-18"]

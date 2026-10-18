@@ -1,0 +1,5 @@
+columns: [promo_phase, gmv]
+rows:
+  - {promo_phase: 正式, gmv: "1620000.00"}
+  - {promo_phase: 预热, gmv: "1080000.00"}
+  - {promo_phase: 返场, gmv: "400000.00"}

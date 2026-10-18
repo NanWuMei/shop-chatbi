@@ -1,0 +1,45 @@
+id: t06
+question: 618大促期间客单价（AOV）是多少
+rows_key: t06
+llm:
+  understand:
+    - metrics: [客单价]
+      dimensions: []
+      time_expr: 618大促期间
+      slot_form: scalar
+      is_data_question: true
+  aligner:
+    - status: ok
+      query_spec:
+        metrics:
+          - name: aov
+            label: 客单价（AOV）
+            table: fact_order
+            expression: SUM(o.gmv_amount) / NULLIF(COUNT(o.order_id), 0)
+            agg: ""
+            fmt: money
+            filters: ["pay_status='已支付'"]
+            caliber_note: AOV=已支付订单GMV合计/已支付订单数（分母=订单数）
+        dimensions: []
+        time_range: {start: "2026-06-01", end: "2026-06-20", label: 大促期间, inferred: false}
+        grain: total
+        caliber_summary: 客单价(AOV)=已支付订单GMV合计/已支付订单数（分母=订单数）；范围=大促期间(2026-06-01~2026-06-20)
+  coder:
+    - sql: >-
+        SELECT SUM(o.gmv_amount) / COUNT(o.order_id) AS aov
+        FROM fact_order o
+        WHERE o.pay_status = '已支付' AND o.order_date BETWEEN '2026-06-01' AND '2026-06-20'
+      lineage:
+        tables: [fact_order]
+        columns: [gmv_amount, order_id, pay_status, order_date]
+        calibers: [AOV=已支付订单GMV合计/已支付订单数]
+        exemplar_ids: []
+  writer:
+    - insight: 大促期间客单价（AOV）为512.30元。
+expect:
+  action: answer
+  path: [S1, S3, S4, S5, S6, S7, S8]
+  chart: null
+  rows: 1
+  insight_contains: "512.30"
+  caliber_contains: [分母=订单数]

@@ -1,0 +1,8 @@
+columns: [order_date, channel_name, gmv]
+rows:
+  - {order_date: "2026-06-16", channel_name: 渠道A, gmv: "380000.00"}
+  - {order_date: "2026-06-16", channel_name: 渠道B, gmv: "290000.00"}
+  - {order_date: "2026-06-17", channel_name: 渠道A, gmv: "520000.00"}
+  - {order_date: "2026-06-17", channel_name: 渠道B, gmv: "350000.00"}
+  - {order_date: "2026-06-18", channel_name: 渠道A, gmv: "410000.00"}
+  - {order_date: "2026-06-18", channel_name: 渠道B, gmv: "310000.00"}

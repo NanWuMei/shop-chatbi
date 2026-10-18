@@ -1,0 +1,16 @@
+id: t15
+question: 为什么618期间退货率上升了
+llm:
+  understand:
+    - metrics: []
+      dimensions: []
+      time_expr: 618期间
+      slot_form: unknown
+      is_data_question: false
+      non_data_kind: attribution
+expect:
+  action: not_answerable
+  path: [S1]
+  reason_code: NOT_DATA_QUESTION
+  suggestions_min: 1
+  llm_agent_calls: {understand: 1, aligner: 0, coder: 0, writer: 0}

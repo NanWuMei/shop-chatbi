@@ -1,0 +1,49 @@
+# L1 维度与实体映射（可选增强；L0 无字典时由列注释 + 枚举采样识别，见 metrics-dictionary v0.2 §3）
+# 每个维度的 source 表/列必须能在 L0 中找到；歧义组仅增强召回与选项文案，澄清由 L0 枚举采样本身触发。
+entities:
+  - id: channel
+    name: 渠道
+    aliases: [平台, 流量渠道]
+    source: {table: dim_channel, column: channel_name, join_key: channel_id}
+    values: [渠道A, 渠道B, 渠道C, 渠道D]
+
+  - id: category
+    name: 类目
+    aliases: [品类, 商品类目]
+    source:
+      table: dim_category
+      columns: [level1_name, level2_name]
+      join_key: category_id
+      note: 两级类目（一级 level1_name / 二级 level2_name），事实表挂二级叶子类目
+    ambiguity_groups:
+      - term: 美妆
+        aliases: [美妆类, beauty]
+        candidates:
+          - {column: level1_name, value: 美妆个护, label: 一级类目·美妆个护（含其下全部二级）}
+          - {column: level2_name, value: 彩妆, label: 二级类目·彩妆（属美妆个护）}
+          - {column: level2_name, value: 护肤, label: 二级类目·护肤（属美妆个护）}
+          - {column: level2_name, value: 美妆工具, label: 二级类目·美妆工具（名称含美妆，单列为候选）}
+
+  - id: date
+    name: 日期
+    aliases: [天, 日, 时间]
+    source:
+      table: dim_date
+      column: date
+      fact_columns: {fact_order: order_date, fact_traffic_daily: date, fact_order_item: "经 fact_order 关联"}
+      note: 日粒度；时间归一与档期切分的唯一依据
+
+  - id: promo_phase
+    name: 档期
+    aliases: [大促阶段, 活动阶段]
+    source:
+      table: dim_date
+      column: promo_phase
+      aux_columns: {is_promo: 是否大促期间（预热+正式+返场）, promo_relative_week: 大促相对周标记（前一周/大促周/后一周）}
+    values: [预热, 正式, 返场, 日常]
+
+  - id: customer_type
+    name: 新老客
+    aliases: [客户类型, 新客, 老客]
+    source: {table: fact_order, column: is_new_customer}
+    display_map: {"true": 新客, "false": 老客}

@@ -1,0 +1,8 @@
+# api 服务依赖（含 algorithm 包运行依赖，镜像构建上下文为仓库根）
+-r ../algorithm/requirements.txt
+fastapi>=0.115
+uvicorn>=0.30
+sqlalchemy>=2.0
+psycopg[binary,pool]>=3.1
+pydantic>=2.7
+sse-starlette>=2.1

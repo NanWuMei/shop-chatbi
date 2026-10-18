@@ -1,0 +1,7 @@
+columns: [order_date, gmv]
+rows:
+  - {order_date: "2026-06-16", gmv: "380000.00"}
+  - {order_date: "2026-06-17", gmv: "520000.00"}
+  - {order_date: "2026-06-18", gmv: "410000.00"}
+  - {order_date: "2026-06-19", gmv: "260000.00"}
+  - {order_date: "2026-06-20", gmv: "210000.00"}

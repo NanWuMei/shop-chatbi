@@ -1,0 +1,6 @@
+columns: [channel_name, gmv]
+rows:
+  - {channel_name: 渠道A, gmv: "1280000.00"}
+  - {channel_name: 渠道B, gmv: "960000.00"}
+  - {channel_name: 渠道C, gmv: "540000.00"}
+  - {channel_name: 渠道D, gmv: "320000.00"}

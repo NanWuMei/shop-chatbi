@@ -1,0 +1,5 @@
+columns: [level2_name, return_rate]
+rows:
+  - {level2_name: 美妆工具, return_rate: "11.3"}
+  - {level2_name: 女装, return_rate: "9.8"}
+  - {level2_name: 手机, return_rate: "7.2"}

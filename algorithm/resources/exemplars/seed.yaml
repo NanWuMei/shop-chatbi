@@ -1,0 +1,148 @@
+# 示例种子（第 4 轮 exemplar 导入源；仅作 few-shot 参考，不是执行语句）
+# 字段对齐 backend_service/data/pg_exemplar_repo.py 的 Exemplar：question / sql / chart_type / tags。
+# 覆盖形态：排名、对比、趋势、TopN、占比、档期分段、同比；图型只用五图型 bar/line/trend_line/grouped_bar/pie。
+exemplars:
+  # —— 排名（bar）——
+  - question: 618大促期间各渠道GMV是多少，按从高到低排
+    chart_type: bar
+    tags: [排名, 渠道, GMV, 大促]
+    sql: |
+      SELECT ch.channel_name,
+             SUM(fo.gmv_amount) AS gmv
+      FROM dw.fact_order fo
+      JOIN dw.dim_channel ch ON fo.channel_id = ch.channel_id
+      WHERE fo.pay_status = '已支付'
+        AND fo.order_date BETWEEN '2026-06-01' AND '2026-06-20'
+      GROUP BY ch.channel_name
+      ORDER BY gmv DESC
+
+  # —— 对比（bar）：各渠道支付转化率 ——
+  - question: 大促期间哪个渠道转化率最高
+    chart_type: bar
+    tags: [对比, 渠道, 转化率]
+    sql: |
+      WITH payers AS (
+          SELECT channel_id, COUNT(DISTINCT customer_id) AS buyers
+          FROM dw.fact_order
+          WHERE pay_status = '已支付'
+            AND order_date BETWEEN '2026-06-01' AND '2026-06-20'
+          GROUP BY channel_id
+      ),
+      traffic AS (
+          SELECT channel_id, SUM(visitors) AS uv
+          FROM dw.fact_traffic_daily
+          WHERE date BETWEEN '2026-06-01' AND '2026-06-20'
+          GROUP BY channel_id
+      )
+      SELECT ch.channel_name,
+             ROUND(p.buyers * 100.0 / NULLIF(t.uv, 0), 1) AS conversion_rate
+      FROM payers p
+      JOIN traffic t ON p.channel_id = t.channel_id
+      JOIN dw.dim_channel ch ON p.channel_id = ch.channel_id
+      ORDER BY conversion_rate DESC
+
+  # —— 趋势（trend_line）：多渠道按天 ——
+  - question: 大促三天各渠道GMV趋势
+    chart_type: trend_line
+    tags: [趋势, 渠道, GMV, 按天]
+    sql: |
+      SELECT fo.order_date AS date,
+             ch.channel_name,
+             SUM(fo.gmv_amount) AS gmv
+      FROM dw.fact_order fo
+      JOIN dw.dim_channel ch ON fo.channel_id = ch.channel_id
+      WHERE fo.pay_status = '已支付'
+        AND fo.order_date BETWEEN '2026-06-16' AND '2026-06-18'
+      GROUP BY fo.order_date, ch.channel_name
+      ORDER BY fo.order_date, ch.channel_name
+
+  # —— TopN（bar）：类目退货率 Top3 ——
+  - question: 大促期间退货率最高的三个类目是哪些
+    chart_type: bar
+    tags: [TopN, 类目, 退货率]
+    sql: |
+      SELECT ca.level1_name || ' > ' || ca.level2_name AS category,
+             ROUND(SUM(foi.return_amount) * 100.0 / NULLIF(SUM(foi.paid_amount), 0), 1) AS return_rate
+      FROM dw.fact_order_item foi
+      JOIN dw.dim_category ca ON foi.category_id = ca.category_id
+      JOIN dw.fact_order fo ON foi.order_id = fo.order_id
+      WHERE fo.pay_status = '已支付'
+        AND fo.order_date BETWEEN '2026-06-01' AND '2026-06-20'
+      GROUP BY ca.level1_name, ca.level2_name
+      ORDER BY return_rate DESC
+      LIMIT 3
+
+  # —— TopN（bar）：类目 GMV Top3 ——
+  - question: 618期间GMV最高的三个类目是哪些
+    chart_type: bar
+    tags: [TopN, 类目, GMV]
+    sql: |
+      SELECT ca.level1_name || ' > ' || ca.level2_name AS category,
+             SUM(foi.paid_amount) AS gmv
+      FROM dw.fact_order_item foi
+      JOIN dw.dim_category ca ON foi.category_id = ca.category_id
+      JOIN dw.fact_order fo ON foi.order_id = fo.order_id
+      WHERE fo.pay_status = '已支付'
+        AND fo.order_date BETWEEN '2026-06-01' AND '2026-06-20'
+      GROUP BY ca.level1_name, ca.level2_name
+      ORDER BY gmv DESC
+      LIMIT 3
+
+  # —— 占比（pie）：新老客 GMV 占比 ——
+  - question: 618期间新客和老客的GMV占比分别是多少
+    chart_type: pie
+    tags: [占比, 新老客, GMV]
+    sql: |
+      SELECT CASE WHEN fo.is_new_customer THEN '新客' ELSE '老客' END AS customer_type,
+             SUM(fo.gmv_amount) AS gmv
+      FROM dw.fact_order fo
+      WHERE fo.pay_status = '已支付'
+        AND fo.order_date BETWEEN '2026-06-01' AND '2026-06-20'
+      GROUP BY fo.is_new_customer
+      ORDER BY gmv DESC
+
+  # —— 档期分段对比（grouped_bar）：预热/正式/返场 ——
+  - question: 618期间各档期（预热/正式/返场）GMV分别是多少
+    chart_type: grouped_bar
+    tags: [对比, 档期, GMV]
+    sql: |
+      SELECT dd.promo_phase,
+             SUM(fo.gmv_amount) AS gmv
+      FROM dw.fact_order fo
+      JOIN dw.dim_date dd ON fo.order_date = dd.date
+      WHERE fo.pay_status = '已支付'
+        AND fo.order_date BETWEEN '2026-06-01' AND '2026-06-20'
+        AND dd.promo_phase IN ('预热', '正式', '返场')
+      GROUP BY dd.promo_phase
+      ORDER BY CASE dd.promo_phase WHEN '预热' THEN 1 WHEN '正式' THEN 2 WHEN '返场' THEN 3 END
+
+  # —— 档期环比（grouped_bar）：前一周/大促/后一周三段 ——
+  - question: 618大促前一周 vs 大促期间 vs 大促后一周，GMV环比变化
+    chart_type: grouped_bar
+    tags: [对比, 环比, 档期, GMV]
+    sql: |
+      SELECT CASE
+                 WHEN fo.order_date BETWEEN '2026-06-09' AND '2026-06-15' THEN '大促前一周'
+                 WHEN fo.order_date BETWEEN '2026-06-16' AND '2026-06-18' THEN '大促期间'
+                 WHEN fo.order_date BETWEEN '2026-06-19' AND '2026-06-25' THEN '大促后一周'
+             END AS period,
+             SUM(fo.gmv_amount) AS gmv
+      FROM dw.fact_order fo
+      WHERE fo.pay_status = '已支付'
+        AND fo.order_date BETWEEN '2026-06-09' AND '2026-06-25'
+      GROUP BY period
+      ORDER BY MIN(fo.order_date)
+
+  # —— 同比（bar）：今年 vs 去年同期 ——
+  - question: 今年618 GMV比去年同期高还是低，差多少
+    chart_type: bar
+    tags: [对比, 同比, GMV]
+    sql: |
+      SELECT CASE WHEN EXTRACT(YEAR FROM fo.order_date) = 2026 THEN '今年' ELSE '去年同期' END AS period,
+             SUM(fo.gmv_amount) AS gmv
+      FROM dw.fact_order fo
+      WHERE fo.pay_status = '已支付'
+        AND (fo.order_date BETWEEN '2026-06-16' AND '2026-06-18'
+          OR fo.order_date BETWEEN '2025-06-16' AND '2025-06-18')
+      GROUP BY period
+      ORDER BY period

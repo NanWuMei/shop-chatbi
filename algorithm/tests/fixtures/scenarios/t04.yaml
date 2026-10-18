@@ -1,0 +1,53 @@
+id: t04
+question: 大促期间退货率最高的三个类目是哪些
+rows_key: t04
+llm:
+  understand:
+    - metrics: [退货率]
+      dimensions: [类目]
+      time_expr: 大促期间
+      sort: return_rate desc
+      top_n: 3
+      slot_form: ranking
+      is_data_question: true
+  aligner:
+    - status: ok
+      query_spec:
+        metrics:
+          - name: return_rate
+            label: 退货率
+            table: fact_order_item
+            expression: SUM(i.return_amount) * 100.0 / NULLIF(SUM(i.paid_amount), 0)
+            agg: ""
+            fmt: percent
+            caliber_note: 退货率=退货商品成交金额/商品行支付金额×100%
+        dimensions:
+          - {name: category, label: 类目, table: dim_category, column: level2_name}
+        time_range: {start: "2026-06-01", end: "2026-06-20", label: 大促期间, inferred: false}
+        grain: total
+        sort: return_rate desc
+        limit: 3
+        caliber_summary: 退货率=退货商品成交金额/商品行支付金额×100%；范围=大促期间(2026-06-01~2026-06-20)；按二级类目分组降序取前3
+  coder:
+    - sql: >-
+        SELECT cat.level2_name, ROUND(SUM(i.return_amount) * 100.0 / NULLIF(SUM(i.paid_amount), 0), 1) AS return_rate
+        FROM fact_order_item i
+        JOIN dim_category cat ON i.category_id = cat.category_id
+        JOIN fact_order o ON i.order_id = o.order_id
+        WHERE o.order_date BETWEEN '2026-06-01' AND '2026-06-20'
+        GROUP BY cat.level2_name ORDER BY return_rate DESC LIMIT 3
+      lineage:
+        tables: [fact_order_item, dim_category, fact_order]
+        columns: [level2_name, return_amount, paid_amount, category_id, order_id, order_date]
+        calibers: [退货率=退货商品成交金额/商品行支付金额×100%]
+        exemplar_ids: []
+  writer:
+    - insight: 美妆工具的退货率最高，为11.3%。
+expect:
+  action: answer
+  path: [S1, S3, S4, S5, S6, S7, S8]
+  chart: bar
+  rows: 3
+  insight_contains: 美妆工具
+  sql_contains: LIMIT 3
+  caliber_contains: [退货率]

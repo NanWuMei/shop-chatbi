@@ -1,0 +1,3 @@
+columns: [return_rate]
+rows:
+  - {return_rate: "9.2"}

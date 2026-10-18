@@ -1,0 +1,103 @@
+# S2 模板库（可选皮肤；空库=永远未命中，主流程照跑）
+# 规则：模板只覆盖「单时间区间 + 单指标 + 固定维度」的简单问法；
+#   含对比/环比/占比计算等复杂逻辑的场景命中不了，自然走 S3→S4→S5 主链路。
+# 时间槽位统一用 {start} / {end}，由 L1 time-calendar 解析后填入；
+# 图型对齐五图型：bar / line / trend_line / grouped_bar / pie。
+templates:
+  # 1. 排名 / 对比（bar）
+  - id: ranking-channel-gmv
+    match:
+      metrics: [GMV]
+      dimensions: [渠道]
+      allow_sort: true
+    chart_type: bar
+    sql: |
+      SELECT ch.channel_name,
+             SUM(fo.gmv_amount) AS gmv
+      FROM dw.fact_order fo
+      JOIN dw.dim_channel ch ON fo.channel_id = ch.channel_id
+      WHERE fo.pay_status = '已支付'
+        AND fo.order_date BETWEEN '{start}' AND '{end}'
+      GROUP BY ch.channel_name
+      ORDER BY gmv DESC
+
+  # 2. 趋势（trend_line）— 按天分渠道展开
+  - id: trend-daily-channel-gmv
+    match:
+      metrics: [GMV]
+      dimensions: [渠道]
+      allow_sort: true
+    chart_type: trend_line
+    sql: |
+      SELECT fo.order_date AS date,
+             ch.channel_name,
+             SUM(fo.gmv_amount) AS gmv
+      FROM dw.fact_order fo
+      JOIN dw.dim_channel ch ON fo.channel_id = ch.channel_id
+      WHERE fo.pay_status = '已支付'
+        AND fo.order_date BETWEEN '{start}' AND '{end}'
+      GROUP BY fo.order_date, ch.channel_name
+      ORDER BY fo.order_date, ch.channel_name
+
+  # 3. 对比（bar）— 各渠道支付转化率（含子查询防重复计数）
+  - id: compare-channel-conversion
+    match:
+      metrics: [支付转化率]
+      dimensions: [渠道]
+      allow_sort: true
+    chart_type: bar
+    sql: |
+      WITH payers AS (
+          SELECT channel_id, COUNT(DISTINCT customer_id) AS buyers
+          FROM dw.fact_order
+          WHERE pay_status = '已支付'
+            AND order_date BETWEEN '{start}' AND '{end}'
+          GROUP BY channel_id
+      ),
+      traffic AS (
+          SELECT channel_id, SUM(visitors) AS uv
+          FROM dw.fact_traffic_daily
+          WHERE date BETWEEN '{start}' AND '{end}'
+          GROUP BY channel_id
+      )
+      SELECT ch.channel_name,
+             ROUND(p.buyers * 100.0 / NULLIF(t.uv, 0), 1) AS conversion_rate
+      FROM payers p
+      JOIN traffic t ON p.channel_id = t.channel_id
+      JOIN dw.dim_channel ch ON p.channel_id = ch.channel_id
+      ORDER BY conversion_rate DESC
+
+  # 4. 分组对比（grouped_bar）— 各渠道 × 各档期 GMV
+  - id: grouped-promo-channel-gmv
+    match:
+      metrics: [GMV]
+      dimensions: [渠道, 档期]
+      allow_sort: true
+    chart_type: grouped_bar
+    sql: |
+      SELECT ch.channel_name,
+             dd.promo_phase,
+             SUM(fo.gmv_amount) AS gmv
+      FROM dw.fact_order fo
+      JOIN dw.dim_channel ch ON fo.channel_id = ch.channel_id
+      JOIN dw.dim_date dd ON fo.order_date = dd.date
+      WHERE fo.pay_status = '已支付'
+        AND fo.order_date BETWEEN '{start}' AND '{end}'
+      GROUP BY ch.channel_name, dd.promo_phase
+      ORDER BY ch.channel_name, dd.promo_phase
+
+  # 5. 占比（pie）— 新老客 GMV 占比
+  - id: share-customer-type-gmv
+    match:
+      metrics: [GMV]
+      dimensions: [新老客]
+      allow_sort: true
+    chart_type: pie
+    sql: |
+      SELECT CASE WHEN fo.is_new_customer THEN '新客' ELSE '老客' END AS customer_type,
+             SUM(fo.gmv_amount) AS gmv
+      FROM dw.fact_order fo
+      WHERE fo.pay_status = '已支付'
+        AND fo.order_date BETWEEN '{start}' AND '{end}'
+      GROUP BY fo.is_new_customer
+      ORDER BY gmv DESC

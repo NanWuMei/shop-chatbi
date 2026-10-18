@@ -1,0 +1,4 @@
+columns: [customer_type, share]
+rows:
+  - {customer_type: 新客, share: "42.5"}
+  - {customer_type: 老客, share: "57.5"}

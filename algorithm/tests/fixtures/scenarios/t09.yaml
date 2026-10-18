@@ -1,0 +1,21 @@
+id: t09
+question: 帮我看看「美妆」类目618的表现
+llm:
+  understand:
+    - metrics: []
+      dimensions: [类目]
+      time_expr: "618"
+      filters: [类目=美妆]
+      slot_form: unknown
+      is_data_question: true
+  aligner:
+    - status: clarify
+      clarify_reason: METRIC_DIM_AMBIGUOUS
+      clarify_focus: 美妆
+expect:
+  action: clarify
+  path: [S1, S3, S4]
+  reason_code: METRIC_DIM_AMBIGUOUS
+  input_type: single_choice
+  options_min: 2
+  round: 1

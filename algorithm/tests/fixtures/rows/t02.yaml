@@ -1,0 +1,6 @@
+columns: [channel_name, conversion_rate]
+rows:
+  - {channel_name: 渠道B, conversion_rate: "5.8"}
+  - {channel_name: 渠道A, conversion_rate: "5.2"}
+  - {channel_name: 渠道C, conversion_rate: "4.1"}
+  - {channel_name: 渠道D, conversion_rate: "3.6"}

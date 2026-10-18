@@ -1,0 +1,59 @@
+id: t07
+question: 618大促前一周 vs 大促期间 vs 大促后一周，GMV环比变化
+rows_key: t07
+llm:
+  understand:
+    - metrics: [GMV]
+      dimensions: []
+      time_expr: 大促前一周 vs 大促期间 vs 大促后一周
+      comparison_intent: custom
+      slot_form: comparison
+      is_data_question: true
+  aligner:
+    - status: ok
+      query_spec:
+        metrics:
+          - name: gmv
+            label: GMV
+            table: fact_order
+            expression: SUM(gmv_amount)
+            agg: SUM
+            fmt: money
+            filters: ["pay_status='已支付'"]
+            caliber_note: GMV=已支付订单商品成交金额求和
+        dimensions: []
+        grain: total
+        comparison:
+          mode: custom
+          periods:
+            - {key: pre_week, label: 前一周, start: "2026-06-09", end: "2026-06-15"}
+            - {key: current, label: 当期, start: "2026-06-16", end: "2026-06-18"}
+            - {key: post_week, label: 后一周, start: "2026-06-19", end: "2026-06-25"}
+          value_fields: [gmv]
+        caliber_summary: GMV=已支付订单商品成交金额求和；三段对比=前一周(2026-06-09~2026-06-15)/当期(2026-06-16~2026-06-18)/后一周(2026-06-19~2026-06-25)；环比变化由平台计算
+  coder:
+    - sql: >-
+        SELECT CASE WHEN o.order_date BETWEEN '2026-06-09' AND '2026-06-15' THEN '前一周'
+                    WHEN o.order_date BETWEEN '2026-06-16' AND '2026-06-18' THEN '当期'
+                    WHEN o.order_date BETWEEN '2026-06-19' AND '2026-06-25' THEN '后一周' END AS period_key,
+               SUM(o.gmv_amount) AS gmv
+        FROM fact_order o
+        WHERE o.pay_status = '已支付' AND o.order_date BETWEEN '2026-06-09' AND '2026-06-25'
+        GROUP BY period_key
+      lineage:
+        tables: [fact_order]
+        columns: [order_date, gmv_amount, pay_status]
+        calibers: [GMV=已支付订单商品成交金额求和]
+        exemplar_ids: []
+  writer:
+    - insight: GMV当期 vs 前一周变化 420000.00，变化率 35.0%。
+expect:
+  action: answer
+  path: [S1, S3, S4, S5, S6, S7, S8]
+  chart: grouped_bar
+  rows: 3
+  periods: 3
+  changes: 2
+  changes_rate: "35.0"
+  insight_contains: "35.0"
+  caliber_contains: [前一周, 后一周]

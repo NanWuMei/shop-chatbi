@@ -1,0 +1,4 @@
+columns: [period_key, gmv]
+rows:
+  - {period_key: 去年同期, gmv: "2650000.00"}
+  - {period_key: 今年618大促, gmv: "3100000.00"}

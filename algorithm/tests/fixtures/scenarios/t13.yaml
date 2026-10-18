@@ -1,0 +1,48 @@
+id: t13
+question: 618期间新客和老客的GMV占比分别是多少
+rows_key: t13
+llm:
+  understand:
+    - metrics: [GMV占比]
+      dimensions: [客户类型]
+      time_expr: 618期间
+      slot_form: share
+      is_data_question: true
+  aligner:
+    - status: ok
+      query_spec:
+        metrics:
+          - name: share
+            label: GMV占比
+            table: fact_order
+            expression: SUM(o.gmv_amount) * 100.0 / SUM(SUM(o.gmv_amount)) OVER ()
+            agg: ""
+            fmt: percent
+            filters: ["pay_status='已支付'"]
+            caliber_note: GMV占比=分组GMV/总GMV×100%
+        dimensions:
+          - {name: customer_type, label: 客户类型, table: fact_order, column: customer_type}
+        time_range: {start: "2026-06-01", end: "2026-06-20", label: 大促期间, inferred: false}
+        grain: total
+        caliber_summary: GMV占比=分组GMV/总GMV×100%（新客=首单客户）；范围=大促期间(2026-06-01~2026-06-20)
+  coder:
+    - sql: >-
+        SELECT CASE WHEN o.is_new_customer THEN '新客' ELSE '老客' END AS customer_type,
+               ROUND(SUM(o.gmv_amount) * 100.0 / SUM(SUM(o.gmv_amount)) OVER (), 1) AS share
+        FROM fact_order o
+        WHERE o.pay_status = '已支付' AND o.order_date BETWEEN '2026-06-01' AND '2026-06-20'
+        GROUP BY o.is_new_customer
+      lineage:
+        tables: [fact_order]
+        columns: [is_new_customer, gmv_amount, pay_status, order_date]
+        calibers: [GMV占比=分组GMV/总GMV×100%]
+        exemplar_ids: []
+  writer:
+    - insight: 新客GMV占比42.5%，老客占比57.5%。
+expect:
+  action: answer
+  path: [S1, S3, S4, S5, S6, S7, S8]
+  chart: pie
+  rows: 2
+  insight_contains: "42.5"
+  caliber_contains: [占比]

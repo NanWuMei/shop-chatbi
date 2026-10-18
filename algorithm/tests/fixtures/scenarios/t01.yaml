@@ -1,0 +1,54 @@
+id: t01
+question: 618大促期间各渠道GMV是多少，按从高到低排
+rows_key: t01
+llm:
+  understand:
+    - metrics: [GMV]
+      dimensions: [渠道]
+      time_expr: 618大促期间
+      sort: gmv desc
+      slot_form: ranking
+      is_data_question: true
+  aligner:
+    - status: ok
+      query_spec:
+        metrics:
+          - name: gmv
+            label: GMV
+            table: fact_order
+            expression: SUM(gmv_amount)
+            agg: SUM
+            fmt: money
+            filters: ["pay_status='已支付'"]
+            caliber_note: GMV=已支付订单商品成交金额求和（不含运费、不扣退款）
+        dimensions:
+          - {name: channel, label: 渠道, table: dim_channel, column: channel_name}
+        time_range: {start: "2026-06-01", end: "2026-06-20", label: 大促期间, inferred: false}
+        grain: total
+        sort: gmv desc
+        caliber_summary: GMV=已支付订单商品成交金额求和；范围=大促期间(2026-06-01~2026-06-20)；按渠道分组降序
+  coder:
+    - sql: >-
+        SELECT c.channel_name, SUM(o.gmv_amount) AS gmv FROM fact_order o
+        JOIN dim_channel c ON o.channel_id = c.channel_id
+        WHERE o.pay_status = '已支付' AND o.order_date BETWEEN '2026-06-01' AND '2026-06-20'
+        GROUP BY c.channel_name ORDER BY gmv DESC
+      lineage:
+        tables: [fact_order, dim_channel]
+        columns: [channel_name, gmv_amount, pay_status, order_date, channel_id]
+        calibers: [GMV=已支付订单商品成交金额求和]
+        exemplar_ids: []
+  writer:
+    - insight: 渠道A的GMV最高，为1280000。
+expect:
+  action: answer
+  path: [S1, S3, S4, S5, S6, S7, S8]
+  chart: bar
+  rows: 4
+  retrieval_mode: lexical
+  template_hit: false
+  lint_rounds: 1
+  insight_contains: 渠道A
+  caliber_contains: [GMV, "2026-06-01", "2026-06-20"]
+  sql_contains: LIMIT 500
+  llm_agent_calls: {understand: 1, aligner: 1, coder: 1, writer: 1}

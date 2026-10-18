@@ -1,0 +1,54 @@
+# ChatBI 本地部署（三容器：db / api / web；web 块由 frontend-pages 轮次追加，OQ-1 拍板）
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chatbi
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # 整目录挂载，按文件名字典序执行：01-init.sql（角色/扩展）→ 02-dw.sql（dw 六表 + 618 演示数据）
+      - ./backend_service/db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d chatbi"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    ports:
+      # 仅本地回环发布：供集成测试（OQ-2 人工跑 pytest -m integration）与本机验收
+      - "127.0.0.1:5432:5432"
+
+  api:
+    build:
+      context: .
+      dockerfile: backend_service/Dockerfile
+    env_file:
+      # 真实配置文件在 backend_service/.env（SDD §7.3：不提交）；根目录 .env 不存在，勿回退
+      - path: ./backend_service/.env
+        required: false
+    environment:
+      APP_DATABASE_URL: postgresql://app_user:app_password@db:5432/chatbi
+      ANALYTICS_DATABASE_URL: postgresql://chatbi_ro:chatbi_ro_password@db:5432/chatbi
+      RESOURCES_PATH: /app/algorithm/resources
+    depends_on:
+      db:
+        condition: service_healthy
+    # web 上线后走 nginx 同源反代，api 不再对外发布端口（SDD-后端 §10）
+    expose:
+      - "8000"
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    depends_on:
+      - api
+    environment:
+      API_UPSTREAM: http://api:8000
+    ports:
+      # 统一入口：局域网可访问 http://192.168.31.54:8080（SDD-前端 §10）
+      - "8080:80"
+
+volumes:
+  pgdata:

@@ -1,0 +1,48 @@
+id: t11
+question: 618期间各档期（预热/正式/返场）GMV分别是多少
+rows_key: t11
+llm:
+  understand:
+    - metrics: [GMV]
+      dimensions: [档期]
+      time_expr: 618期间
+      slot_form: comparison
+      is_data_question: true
+  aligner:
+    - status: ok
+      query_spec:
+        metrics:
+          - name: gmv
+            label: GMV
+            table: fact_order
+            expression: SUM(gmv_amount)
+            agg: SUM
+            fmt: money
+            filters: ["pay_status='已支付'"]
+            caliber_note: GMV=已支付订单商品成交金额求和
+        dimensions:
+          - {name: promo_phase, label: 档期, table: dim_date, column: promo_phase}
+        time_range: {start: "2026-06-01", end: "2026-06-20", label: 大促期间, inferred: false}
+        grain: total
+        sort: gmv desc
+        caliber_summary: GMV=已支付订单商品成交金额求和；范围=大促期间(2026-06-01~2026-06-20)；按档期分组（预热06-01~06-15/正式06-16~06-18/返场06-19~06-20，来源活动日历，仅描述不归因）
+  coder:
+    - sql: >-
+        SELECT d.promo_phase, SUM(o.gmv_amount) AS gmv
+        FROM fact_order o JOIN dim_date d ON o.order_date = d.date
+        WHERE o.pay_status = '已支付' AND o.order_date BETWEEN '2026-06-01' AND '2026-06-20'
+        GROUP BY d.promo_phase ORDER BY gmv DESC
+      lineage:
+        tables: [fact_order, dim_date]
+        columns: [promo_phase, gmv_amount, pay_status, order_date, date]
+        calibers: [GMV=已支付订单商品成交金额求和]
+        exemplar_ids: []
+  writer:
+    - insight: 正式期GMV最高，为1620000。
+expect:
+  action: answer
+  path: [S1, S3, S4, S5, S6, S7, S8]
+  chart: bar
+  rows: 3
+  insight_contains: 正式
+  caliber_contains: [档期, 活动日历]

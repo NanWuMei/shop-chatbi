@@ -1,0 +1,79 @@
+# L1 指标口径字典（可选增强，非运行时闸门；无本文件时算法基于 L0 列注释硬跑，期望结果不变）
+# 口径唯一准绳：docs/metrics-dictionary.md v0.2 §2；分子/分母显式写明；来源表/列须能在 L0 找到。
+metrics:
+  - id: gmv
+    name: GMV
+    aliases: [成交额, 销售额]
+    unit: 元
+    format: 2 位小数
+    formula: 支付状态订单的商品成交金额合计（不含运费、不扣退款退货；退货由退货率单独刻画）
+    numerator: SUM(fact_order.gmv_amount)，过滤 pay_status = '已支付'
+    denominator: 无
+    source:
+      overall: {table: fact_order, column: gmv_amount, filter: "pay_status = '已支付'"}
+      category_grain: {table: fact_order_item, column: paid_amount, note: 类目粒度走订单明细金额，与订单 GMV 可对账}
+    supported_dimensions: [渠道, 类目, 新老客, 档期, 日期, 整体]
+
+  - id: conversion_rate
+    name: 支付转化率
+    aliases: [转化率]
+    unit: "%"
+    format: 1 位小数
+    formula: 支付买家数 ÷ 访客数 × 100%
+    numerator: 支付买家数 = fact_order 去重客户数（COUNT DISTINCT customer_id，过滤 pay_status = '已支付'）
+    denominator: 访客数（UV）= SUM(fact_traffic_daily.visitors)
+    source:
+      numerator: {table: fact_order, column: customer_id, filter: "pay_status = '已支付'", agg: count_distinct}
+      denominator: {table: fact_traffic_daily, column: visitors, grain: 日 × 渠道}
+    supported_dimensions: [渠道, 日期, 档期, 整体]
+    unsupported: 本版不支持类目粒度转化率（无类目级流量分母）；问到 → CALIBER_CONFLICT 拒答并建议渠道口径
+
+  - id: return_rate
+    name: 退货率
+    aliases: [退货金额占比]
+    unit: "%"
+    format: 1 位小数
+    formula: 退货商品成交金额 ÷ GMV × 100%（金额口径；退货归属到原订单的统计周期）
+    numerator: SUM(fact_order_item.return_amount)，过滤 is_returned = true
+    denominator: GMV（见 gmv 定义）
+    source:
+      numerator: {table: fact_order_item, column: return_amount, filter: "is_returned = true"}
+      denominator: {table: fact_order, column: gmv_amount, filter: "pay_status = '已支付'"}
+    supported_dimensions: [渠道, 类目, 档期, 日期, 整体]
+
+  - id: aov
+    name: AOV
+    aliases: [客单价]
+    unit: 元
+    format: 2 位小数
+    formula: GMV ÷ 支付订单数（分母口径写死：取支付订单数，不取付款人数）
+    numerator: GMV（见 gmv 定义）
+    denominator: 支付订单数 = COUNT(fact_order.order_id)，过滤 pay_status = '已支付'
+    source:
+      numerator: {table: fact_order, column: gmv_amount, filter: "pay_status = '已支付'"}
+      denominator: {table: fact_order, column: order_id, filter: "pay_status = '已支付'", agg: count}
+    supported_dimensions: [渠道, 新老客, 档期, 日期, 整体]
+    note: 分母口径唯一，回答时必须在口径摘要中明示（T06 铁规则）
+
+  # ---- 派生展示口径（基于唯四指标派生，不新增基础口径）----
+  - id: new_customer_gmv_share
+    name: 新客 GMV 占比
+    aliases: [新客成交占比]
+    unit: "%"
+    format: 1 位小数
+    formula: 新客 GMV ÷ GMV × 100%
+    numerator: SUM(fact_order.gmv_amount)，过滤 pay_status = '已支付' 且 is_new_customer = true
+    denominator: GMV（见 gmv 定义）
+    source: {table: fact_order, column: gmv_amount, filter: "pay_status = '已支付' AND is_new_customer = true"}
+    supported_dimensions: [渠道, 档期, 日期, 整体]
+
+  - id: returning_customer_gmv_share
+    name: 老客 GMV 占比
+    aliases: [老客成交占比]
+    unit: "%"
+    format: 1 位小数
+    formula: 老客 GMV ÷ GMV × 100%
+    numerator: SUM(fact_order.gmv_amount)，过滤 pay_status = '已支付' 且 is_new_customer = false
+    denominator: GMV（见 gmv 定义）
+    source: {table: fact_order, column: gmv_amount, filter: "pay_status = '已支付' AND is_new_customer = false"}
+    supported_dimensions: [渠道, 档期, 日期, 整体]

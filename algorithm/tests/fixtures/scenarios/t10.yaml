@@ -1,0 +1,18 @@
+id: t10
+question: 我们今年的品牌心智份额是多少
+llm:
+  understand:
+    - metrics: [品牌心智份额]
+      dimensions: []
+      time_expr: 今年
+      slot_form: scalar
+      is_data_question: true
+  aligner:
+    - status: not_answerable
+      reject_reason: NO_MATCHING_DATA
+      reject_text: 已接入的数据表里没有品牌心智份额相关数据，可以改查 GMV、转化率、退货率、客单价。
+expect:
+  action: not_answerable
+  path: [S1, S3, S4]
+  reason_code: NO_MATCHING_DATA
+  suggestions_min: 1

@@ -1,0 +1,5 @@
+columns: [level2_name, gmv]
+rows:
+  - {level2_name: 彩妆, gmv: "580000.00"}
+  - {level2_name: 女装, gmv: "520000.00"}
+  - {level2_name: 手机, gmv: "470000.00"}

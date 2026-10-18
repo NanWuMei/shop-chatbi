@@ -1,0 +1,57 @@
+id: t08
+question: 今年618 GMV比去年同期高还是低，差多少
+rows_key: t08
+llm:
+  understand:
+    - metrics: [GMV]
+      dimensions: []
+      time_expr: 今年618
+      comparison_intent: yoy
+      slot_form: comparison
+      is_data_question: true
+  aligner:
+    - status: ok
+      query_spec:
+        metrics:
+          - name: gmv
+            label: GMV
+            table: fact_order
+            expression: SUM(gmv_amount)
+            agg: SUM
+            fmt: money
+            filters: ["pay_status='已支付'"]
+            caliber_note: GMV=已支付订单商品成交金额求和
+        dimensions: []
+        grain: total
+        comparison:
+          mode: yoy
+          periods:
+            - {key: last_year, label: 去年同期, start: "2025-06-01", end: "2025-06-20"}
+            - {key: this_year, label: 今年618大促, start: "2026-06-01", end: "2026-06-20"}
+          value_fields: [gmv]
+        caliber_summary: GMV=已支付订单商品成交金额求和；同比=今年618大促(2026-06-01~2026-06-20) vs 去年同期(2025-06-01~2025-06-20)
+  coder:
+    - sql: >-
+        SELECT CASE WHEN o.order_date BETWEEN '2025-06-01' AND '2025-06-20' THEN '去年同期'
+                    WHEN o.order_date BETWEEN '2026-06-01' AND '2026-06-20' THEN '今年618大促' END AS period_key,
+               SUM(o.gmv_amount) AS gmv
+        FROM fact_order o
+        WHERE o.pay_status = '已支付' AND o.order_date BETWEEN '2025-06-01' AND '2026-06-20'
+        GROUP BY period_key
+      lineage:
+        tables: [fact_order]
+        columns: [order_date, gmv_amount, pay_status]
+        calibers: [GMV=已支付订单商品成交金额求和]
+        exemplar_ids: []
+  writer:
+    - insight: 今年618大促GMV高于去年同期，差450000.00，变化率17.0%。
+expect:
+  action: answer
+  path: [S1, S3, S4, S5, S6, S7, S8]
+  chart: grouped_bar
+  rows: 2
+  periods: 2
+  changes: 1
+  changes_rate: "17.0"
+  insight_contains: 高
+  caliber_contains: [去年同期]

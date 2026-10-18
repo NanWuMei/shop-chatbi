@@ -1,0 +1,51 @@
+id: t02
+question: 大促期间哪个渠道转化率最高，给个柱状图
+rows_key: t02
+llm:
+  understand:
+    - metrics: [转化率]
+      dimensions: [渠道]
+      time_expr: 大促期间
+      sort: conversion_rate desc
+      slot_form: ranking
+      is_data_question: true
+  aligner:
+    - status: ok
+      query_spec:
+        metrics:
+          - name: conversion_rate
+            label: 转化率
+            table: fact_order
+            expression: COUNT(DISTINCT o.customer_id) * 100.0 / NULLIF(SUM(t.visitors), 0)
+            agg: ""
+            fmt: percent
+            filters: ["pay_status='已支付'"]
+            caliber_note: 转化率=已支付客户数/访客数UV×100%
+        dimensions:
+          - {name: channel, label: 渠道, table: dim_channel, column: channel_name}
+        time_range: {start: "2026-06-01", end: "2026-06-20", label: 大促期间, inferred: false}
+        grain: total
+        sort: conversion_rate desc
+        caliber_summary: 转化率=已支付客户数/访客数UV×100%；范围=大促期间(2026-06-01~2026-06-20)；按渠道分组降序
+  coder:
+    - sql: >-
+        SELECT c.channel_name, ROUND(COUNT(DISTINCT o.customer_id) * 100.0 / NULLIF(SUM(t.visitors), 0), 1) AS conversion_rate
+        FROM fact_order o
+        JOIN dim_channel c ON o.channel_id = c.channel_id
+        JOIN fact_traffic_daily t ON t.channel_id = o.channel_id AND t.date = o.order_date
+        WHERE o.pay_status = '已支付' AND o.order_date BETWEEN '2026-06-01' AND '2026-06-20'
+        GROUP BY c.channel_name ORDER BY conversion_rate DESC
+      lineage:
+        tables: [fact_order, dim_channel, fact_traffic_daily]
+        columns: [channel_name, customer_id, visitors, channel_id, order_date, pay_status, date]
+        calibers: [转化率=已支付客户数/访客数UV×100%]
+        exemplar_ids: []
+  writer:
+    - insight: 渠道B的转化率最高，为5.8%。
+expect:
+  action: answer
+  path: [S1, S3, S4, S5, S6, S7, S8]
+  chart: bar
+  rows: 4
+  insight_contains: 渠道B
+  caliber_contains: [转化率, 访客数]

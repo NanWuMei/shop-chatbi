@@ -1,0 +1,103 @@
+{
+  "meta": {
+    "source": "metrics-dictionary §5 六张 dw 表静态快照（L0，替代真实 information_schema 抽取）",
+    "coverage": {
+      "start": "2025-06-01",
+      "end": "2026-06-30",
+      "note": "2025 年仅保证 618 同期窗口（6/1～6/25）有数"
+    },
+    "promo_calendar": {
+      "本期大促·预热期": ["2026-06-01", "2026-06-15"],
+      "本期大促·正式期": ["2026-06-16", "2026-06-18"],
+      "本期大促·返场期": ["2026-06-19", "2026-06-20"],
+      "大促期间": ["2026-06-01", "2026-06-20"],
+      "大促前一周": ["2026-06-09", "2026-06-15"],
+      "大促后一周": ["2026-06-19", "2026-06-25"],
+      "去年同期": ["2025-06-16", "2025-06-18"]
+    }
+  },
+  "tables": [
+    {
+      "table": "dim_date",
+      "comment": "日期维表（日粒度），含大促档期标记",
+      "columns": [
+        {"name": "date", "type": "date", "comment": "日期", "is_pk": true},
+        {"name": "year", "type": "int", "comment": "年"},
+        {"name": "month", "type": "int", "comment": "月"},
+        {"name": "day", "type": "int", "comment": "日"},
+        {"name": "promo_phase", "type": "text", "comment": "大促档期：预热/正式/返场/日常"},
+        {"name": "is_promo", "type": "bool", "comment": "是否大促期间"},
+        {"name": "promo_relative_week", "type": "text", "comment": "相对大促的周：前一周/当期/后一周"}
+      ],
+      "enum_samples": {
+        "promo_phase": ["预热", "正式", "返场", "日常"],
+        "promo_relative_week": ["前一周", "当期", "后一周"]
+      }
+    },
+    {
+      "table": "dim_channel",
+      "comment": "渠道维表",
+      "columns": [
+        {"name": "channel_id", "type": "int", "comment": "渠道ID", "is_pk": true},
+        {"name": "channel_name", "type": "text", "comment": "渠道名称（渠道A/B/C/D）"}
+      ],
+      "enum_samples": {
+        "channel_name": ["渠道A", "渠道B", "渠道C", "渠道D"]
+      }
+    },
+    {
+      "table": "dim_category",
+      "comment": "类目维表（两级，事实表挂叶子类目）",
+      "columns": [
+        {"name": "category_id", "type": "int", "comment": "叶子类目ID", "is_pk": true},
+        {"name": "level1_id", "type": "int", "comment": "一级类目ID"},
+        {"name": "level1_name", "type": "text", "comment": "一级类目名称"},
+        {"name": "level2_name", "type": "text", "comment": "二级类目名称"}
+      ],
+      "enum_samples": {
+        "level1_name": ["美妆个护", "服饰内衣", "数码家电", "食品饮料"],
+        "level2_name": ["彩妆", "护肤", "美妆工具", "女装", "男装", "手机", "休闲零食"]
+      }
+    },
+    {
+      "table": "fact_order",
+      "comment": "订单事实表（一单一行）",
+      "columns": [
+        {"name": "order_id", "type": "bigint", "comment": "订单ID", "is_pk": true},
+        {"name": "customer_id", "type": "bigint", "comment": "客户ID"},
+        {"name": "channel_id", "type": "int", "comment": "渠道ID", "fk": "dim_channel.channel_id"},
+        {"name": "order_date", "type": "date", "comment": "下单日期", "fk": "dim_date.date"},
+        {"name": "is_new_customer", "type": "bool", "comment": "是否新客（true新客/false老客）"},
+        {"name": "pay_status", "type": "text", "comment": "支付状态：已支付/已退款/未支付"},
+        {"name": "gmv_amount", "type": "numeric", "comment": "商品成交金额（元，不含运费，不扣退款）"}
+      ],
+      "enum_samples": {
+        "pay_status": ["已支付", "已退款", "未支付"]
+      }
+    },
+    {
+      "table": "fact_order_item",
+      "comment": "订单明细事实表（一单内一商品行），类目GMV与退货率来源",
+      "columns": [
+        {"name": "order_id", "type": "bigint", "comment": "订单ID", "fk": "fact_order.order_id"},
+        {"name": "item_id", "type": "bigint", "comment": "商品行ID", "is_pk": true},
+        {"name": "category_id", "type": "int", "comment": "叶子类目ID", "fk": "dim_category.category_id"},
+        {"name": "paid_amount", "type": "numeric", "comment": "商品行支付金额（元）"},
+        {"name": "qty", "type": "int", "comment": "商品件数"},
+        {"name": "is_returned", "type": "bool", "comment": "是否退货"},
+        {"name": "return_amount", "type": "numeric", "comment": "退货商品成交金额（元）"}
+      ],
+      "enum_samples": {}
+    },
+    {
+      "table": "fact_traffic_daily",
+      "comment": "流量事实表（日×渠道），转化率分母来源",
+      "columns": [
+        {"name": "date", "type": "date", "comment": "日期", "fk": "dim_date.date"},
+        {"name": "channel_id", "type": "int", "comment": "渠道ID", "fk": "dim_channel.channel_id"},
+        {"name": "visitors", "type": "int", "comment": "访客数UV"}
+      ],
+      "enum_samples": {}
+    }
+  ]
+}

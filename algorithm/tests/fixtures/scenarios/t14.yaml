@@ -1,0 +1,53 @@
+id: t14
+question: 618期间GMV最高的三个类目是哪些
+rows_key: t14
+llm:
+  understand:
+    - metrics: [GMV]
+      dimensions: [类目]
+      time_expr: 618期间
+      sort: gmv desc
+      top_n: 3
+      slot_form: ranking
+      is_data_question: true
+  aligner:
+    - status: ok
+      query_spec:
+        metrics:
+          - name: gmv
+            label: GMV
+            table: fact_order_item
+            expression: SUM(i.paid_amount)
+            agg: SUM
+            fmt: money
+            caliber_note: 类目GMV=商品行支付金额求和
+        dimensions:
+          - {name: category, label: 类目, table: dim_category, column: level2_name}
+        time_range: {start: "2026-06-01", end: "2026-06-20", label: 大促期间, inferred: false}
+        grain: total
+        sort: gmv desc
+        limit: 3
+        caliber_summary: 类目GMV=商品行支付金额求和；范围=大促期间(2026-06-01~2026-06-20)；按二级类目分组降序取前3
+  coder:
+    - sql: >-
+        SELECT cat.level2_name, SUM(i.paid_amount) AS gmv
+        FROM fact_order_item i
+        JOIN dim_category cat ON i.category_id = cat.category_id
+        JOIN fact_order o ON i.order_id = o.order_id
+        WHERE o.order_date BETWEEN '2026-06-01' AND '2026-06-20'
+        GROUP BY cat.level2_name ORDER BY gmv DESC LIMIT 3
+      lineage:
+        tables: [fact_order_item, dim_category, fact_order]
+        columns: [level2_name, paid_amount, category_id, order_id, order_date]
+        calibers: [类目GMV=商品行支付金额求和]
+        exemplar_ids: []
+  writer:
+    - insight: 彩妆的GMV最高，为580000。
+expect:
+  action: answer
+  path: [S1, S3, S4, S5, S6, S7, S8]
+  chart: bar
+  rows: 3
+  insight_contains: 彩妆
+  sql_contains: LIMIT 3
+  caliber_contains: [类目GMV]

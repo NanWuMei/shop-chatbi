@@ -1,0 +1,5 @@
+columns: [period_key, gmv]
+rows:
+  - {period_key: 前一周, gmv: "1200000.00"}
+  - {period_key: 当期, gmv: "1620000.00"}
+  - {period_key: 后一周, gmv: "980000.00"}

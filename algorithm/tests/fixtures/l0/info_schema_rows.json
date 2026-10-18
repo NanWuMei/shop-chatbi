@@ -1,0 +1,12 @@
+{
+  "rows": [
+    {"table_name": "dim_channel", "table_comment": "渠道维表", "column_name": "channel_id", "data_type": "int", "column_comment": "渠道ID", "is_pk": true, "fk": null},
+    {"table_name": "dim_channel", "table_comment": "渠道维表", "column_name": "channel_name", "data_type": "text", "column_comment": "渠道名称（渠道A/B/C/D）", "is_pk": false, "fk": null},
+    {"table_name": "fact_traffic_daily", "table_comment": "流量事实表（日×渠道）", "column_name": "date", "data_type": "date", "column_comment": "日期", "is_pk": false, "fk": "dim_date.date"},
+    {"table_name": "fact_traffic_daily", "table_comment": "流量事实表（日×渠道）", "column_name": "channel_id", "data_type": "int", "column_comment": "渠道ID", "is_pk": false, "fk": "dim_channel.channel_id"},
+    {"table_name": "fact_traffic_daily", "table_comment": "流量事实表（日×渠道）", "column_name": "visitors", "data_type": "int", "column_comment": "访客数UV", "is_pk": false, "fk": null}
+  ],
+  "enum_samples": {
+    "dim_channel": {"channel_name": ["渠道A", "渠道B", "渠道C", "渠道D"]}
+  }
+}

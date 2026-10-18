@@ -1,0 +1,4 @@
+# Writer 风格示例（SDD §5/§3-S8）：只控格式，不供数字——不得含任何业务数字。
+examples:
+  - "XX 的 XX 最高，为 XX。"
+  - "XX 占比 XX，XX 占比 XX。"

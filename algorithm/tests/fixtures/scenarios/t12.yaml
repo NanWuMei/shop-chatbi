@@ -1,0 +1,52 @@
+id: t12
+question: 把刚才那个渠道的GMV按天展开看看
+rows_key: t12
+conversation_summary: 上一问：618大促期间各渠道GMV排名，渠道A第一（1280000）。
+llm:
+  understand:
+    - metrics: [GMV]
+      dimensions: [日期]
+      time_expr: 大促期间
+      filters: [渠道=渠道A]
+      slot_form: trend
+      is_data_question: true
+      unresolved_references: []
+  aligner:
+    - status: ok
+      query_spec:
+        metrics:
+          - name: gmv
+            label: GMV
+            table: fact_order
+            expression: SUM(gmv_amount)
+            agg: SUM
+            fmt: money
+            filters: ["pay_status='已支付'"]
+            caliber_note: GMV=已支付订单商品成交金额求和
+        dimensions:
+          - {name: order_date, label: 日期, table: fact_order, column: order_date}
+        time_range: {start: "2026-06-01", end: "2026-06-20", label: 大促期间, inferred: false}
+        grain: day
+        caliber_filters: [渠道=渠道A（承接上一问指代）]
+        caliber_summary: GMV=已支付订单商品成交金额求和；范围=大促期间(2026-06-01~2026-06-20)；渠道=渠道A（承接上一问）；按天展开
+  coder:
+    - sql: >-
+        SELECT o.order_date, SUM(o.gmv_amount) AS gmv
+        FROM fact_order o JOIN dim_channel c ON o.channel_id = c.channel_id
+        WHERE o.pay_status = '已支付' AND c.channel_name = '渠道A'
+          AND o.order_date BETWEEN '2026-06-01' AND '2026-06-20'
+        GROUP BY o.order_date ORDER BY o.order_date
+      lineage:
+        tables: [fact_order, dim_channel]
+        columns: [order_date, gmv_amount, pay_status, channel_name, channel_id]
+        calibers: [GMV=已支付订单商品成交金额求和]
+        exemplar_ids: []
+  writer:
+    - insight: 渠道A的GMV按天波动，峰值出现在大促正式期中段，为520000。
+expect:
+  action: answer
+  path: [S1, S3, S4, S5, S6, S7, S8]
+  chart: trend_line
+  rows: 5
+  insight_contains: 渠道A
+  caliber_contains: [渠道A]

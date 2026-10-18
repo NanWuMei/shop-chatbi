@@ -1,0 +1,70 @@
+id: t05
+question: 美妆类目大促期间退货率是否超过8%阈值，一句话解读
+rows_key: t05
+llm:
+  understand:
+    # 第一轮：识别为判定型取数，但「美妆」口径未钉死
+    - metrics: [退货率]
+      dimensions: []
+      time_expr: 大促期间
+      filters: [类目=美妆]
+      slot_form: judgement
+      is_data_question: true
+    # 第二轮（澄清重入后）
+    - metrics: [退货率]
+      dimensions: []
+      time_expr: 大促期间
+      filters: [一级类目=美妆个护]
+      slot_form: judgement
+      is_data_question: true
+  aligner:
+    # 第一轮：多候选 → 澄清（层级/枚举来自 L0，无需预配字典）
+    - status: clarify
+      clarify_reason: METRIC_DIM_AMBIGUOUS
+      clarify_focus: 美妆
+    # 第二轮：规格钉死
+    - status: ok
+      query_spec:
+        metrics:
+          - name: return_rate
+            label: 退货率
+            table: fact_order_item
+            expression: SUM(i.return_amount) * 100.0 / NULLIF(SUM(i.paid_amount), 0)
+            agg: ""
+            fmt: percent
+            caliber_note: 退货率=退货商品成交金额/商品行支付金额×100%
+        dimensions: []
+        time_range: {start: "2026-06-01", end: "2026-06-20", label: 大促期间, inferred: false}
+        grain: total
+        caliber_filters: [类目层级=一级类目：美妆个护, 判定阈值=8%]
+        caliber_summary: 退货率=退货商品成交金额/商品行支付金额×100%；范围=大促期间(2026-06-01~2026-06-20)；类目=美妆个护（一级）；判定阈值=8%
+  coder:
+    - sql: >-
+        SELECT ROUND(SUM(i.return_amount) * 100.0 / NULLIF(SUM(i.paid_amount), 0), 1) AS return_rate
+        FROM fact_order_item i
+        JOIN dim_category cat ON i.category_id = cat.category_id
+        JOIN fact_order o ON i.order_id = o.order_id
+        WHERE cat.level1_name = '美妆个护' AND o.order_date BETWEEN '2026-06-01' AND '2026-06-20'
+      lineage:
+        tables: [fact_order_item, dim_category, fact_order]
+        columns: [level1_name, return_amount, paid_amount, category_id, order_id, order_date]
+        calibers: [退货率=退货商品成交金额/商品行支付金额×100%]
+        exemplar_ids: []
+  writer:
+    - insight: 美妆个护大促期间退货率为9.2%，超过8%的阈值。
+expect:
+  action: clarify
+  path: [S1, S3, S4]
+  reason_code: METRIC_DIM_AMBIGUOUS
+  input_type: single_choice
+  options_min: 2
+  round: 1
+reentry:
+  clarified_question: 大促期间美妆个护（一级类目）的退货率是否超过8%阈值
+  expect:
+    action: answer
+    path: [S1, S3, S4, S5, S6, S7, S8]
+    chart: null
+    rows: 1
+    insight_contains: "9.2"
+    caliber_contains: [美妆个护, 阈值]
